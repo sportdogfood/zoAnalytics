@@ -13,11 +13,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Ensure that environment variables are properly set
+if (!zohoRefreshToken || !clientId || !clientSecret) {
+  console.error('Missing one or more required environment variables: ZOHO_REFRESH_TOKEN, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET');
+  process.exit(1);
+}
+
 // Function to refresh the Zoho access token
 async function refreshZohoToken() {
   const refreshUrl = 'https://accounts.zoho.com/oauth/v2/token';
 
   try {
+    console.log('Attempting to refresh Zoho access token...');
     const response = await fetch(refreshUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -29,13 +36,16 @@ async function refreshZohoToken() {
       })
     });
 
+    console.log('Refresh token response status:', response.status);
     const data = await response.json();
+    console.log('Response data:', data);
+
     if (data.access_token) {
       zohoAccessToken = data.access_token;
       console.log('Zoho Access Token Refreshed:', zohoAccessToken);
       return zohoAccessToken;
     } else {
-      throw new Error('Failed to refresh Zoho token');
+      throw new Error('Failed to refresh Zoho token: ' + (data.error || 'Unknown error'));
     }
   } catch (error) {
     console.error('Error refreshing Zoho access token:', error);
@@ -48,14 +58,23 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
   try {
     let options = {
       method: method,
-      headers: { 'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`, 'Content-Type': 'application/json' }
+      headers: {
+        'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`,
+        'Content-Type': 'application/json'
+      }
     };
 
     if (body) {
       options.body = JSON.stringify(body);
     }
 
+    console.log(`Sending Zoho API request to URL: ${apiUrl}`);
+    console.log('Request options:', options);
+
     let response = await fetch(apiUrl, options);
+
+    // Log response status
+    console.log('Initial response status:', response.status);
 
     // If the token is expired (401), refresh it and retry the request
     if (response.status === 401) {
@@ -64,9 +83,14 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
 
       // Retry the Zoho API request with the new token
       options.headers.Authorization = `Zoho-oauthtoken ${zohoAccessToken}`;
+      console.log('Retrying Zoho API request with refreshed token...');
       response = await fetch(apiUrl, options);
+
+      // Log response status after retrying
+      console.log('Retry response status:', response.status);
     }
 
+    // Log response if it's not successful
     if (!response.ok) {
       const errorResponse = await response.json();
       console.error(`Zoho API Error: ${response.statusText}`, errorResponse);
@@ -74,6 +98,7 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
     }
 
     const data = await response.json();
+    console.log('Zoho API request successful, response data:', data);
     res.json(data);
   } catch (error) {
     console.error("Error fetching Zoho data:", error);
@@ -81,30 +106,32 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
   }
 }
 
-// Example route to fetch data from a Zoho Analytics report, changed from GET to POST
+// Example route to fetch data from a Zoho Analytics report
 app.post('/zoho-analytics/report', async (req, res) => {
-    const workspaceId = req.body.workspaceId; // Get the workspace ID from the request body
-    const viewId = req.body.viewId; // Get the view ID from the request body
-  
-    // Validate that both workspaceId and viewId are provided
-    if (!workspaceId || !viewId) {
-      return res.status(400).json({ error: 'Missing workspaceId or viewId in request.' });
-    }
-  
-    // Construct the correct API URL
-    const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${workspaceId}/views/${viewId}`;
-  
-    // Make a POST request instead of GET
-    await handleZohoApiRequest(apiUrl, res, 'POST');
-  });
-  
-  
+  const workspaceId = req.body.workspaceId; // Get the workspace ID from the request body
+  const viewId = req.body.viewId; // Get the view ID from the request body
+
+  // Validate that both workspaceId and viewId are provided
+  if (!workspaceId || !viewId) {
+    return res.status(400).json({ error: 'Missing workspaceId or viewId in request.' });
+  }
+
+  // Construct the correct API URL
+  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${workspaceId}/views/${viewId}`;
+
+  // Use GET method as Zoho's API may not support POST for this endpoint
+  await handleZohoApiRequest(apiUrl, res, 'GET');
+});
 
 // Example route to fetch dashboard data from Zoho Analytics
 app.get('/zoho-analytics/dashboard', async (req, res) => {
   const dashboardId = req.query.dashboardId; // Provide the dashboard ID as a query param
-  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/dashboards/${dashboardId}`;
 
+  if (!dashboardId) {
+    return res.status(400).json({ error: 'Missing dashboardId in request.' });
+  }
+
+  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/dashboards/${dashboardId}`;
   await handleZohoApiRequest(apiUrl, res);
 });
 
