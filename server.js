@@ -4,6 +4,9 @@ const fetch = require('node-fetch');
 const cors = require('cors');
 const app = express();
 
+// Load environment variables (optional, for local development)
+//require('dotenv').config();
+
 // Environment Variables
 const zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN;
 const clientId = process.env.ZOHO_CLIENT_ID;
