@@ -41,7 +41,9 @@
         "http-proxy-middleware": "^2.0.6",
         "morgan": "^1.10.0",
         "node-fetch": "^2.7.0",
-        "proxy-from-env": "0.0.1"
+        "proxy-from-env": "0.0.1",
+        "zoho-analytics-lib": "file:./ZohoAnalyticsNodejsLib_v2",
+        "zohoanalyticsnodejslib_v2": "file:ZohoAnalyticsNodejsLib_v2"
     },
     "devDependencies": {
         "coveralls": "^2.11.6",
