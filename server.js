@@ -81,10 +81,10 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
   }
 }
 
-// Example route to fetch data from a Zoho Analytics report
-app.get('/zoho-analytics/report', async (req, res) => {
-    const workspaceId = req.query.workspaceId; // Get the workspace ID as a query parameter
-    const viewId = req.query.viewId; // Get the view ID as a query parameter
+// Example route to fetch data from a Zoho Analytics report, changed from GET to POST
+app.post('/zoho-analytics/report', async (req, res) => {
+    const workspaceId = req.body.workspaceId; // Get the workspace ID from the request body
+    const viewId = req.body.viewId; // Get the view ID from the request body
   
     // Validate that both workspaceId and viewId are provided
     if (!workspaceId || !viewId) {
@@ -94,9 +94,10 @@ app.get('/zoho-analytics/report', async (req, res) => {
     // Construct the correct API URL
     const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${workspaceId}/views/${viewId}`;
   
-    // Call helper function to handle Zoho API request
-    await handleZohoApiRequest(apiUrl, res);
+    // Make a POST request instead of GET
+    await handleZohoApiRequest(apiUrl, res, 'POST');
   });
+  
   
 
 // Example route to fetch dashboard data from Zoho Analytics
