@@ -2,10 +2,13 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-const app = express();
+const morgan = require('morgan');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
+require('dotenv').config(); // For local development
 
-// Load environment variables (optional, for local development)
-//require('dotenv').config();
+const app = express();
 
 // Environment Variables
 const zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN;
@@ -39,6 +42,20 @@ const corsOptions = {
   optionsSuccessStatus: 204 // Some legacy browsers choke on 204
 };
 
+// Apply Security Middlewares
+app.use(helmet());
+
+// Apply Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+app.use(limiter);
+
+// Apply Logging Middleware
+app.use(morgan('combined'));
+
 // Apply CORS middleware first
 app.use(cors(corsOptions));
 
@@ -49,7 +66,7 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Enhanced Logging Middleware
+// Enhanced Logging Middleware (Optional)
 app.use((req, res, next) => {
   console.log(`Incoming Request: ${req.method} ${req.url}`);
   console.log(`Origin: ${req.headers.origin || 'No Origin'}`);
