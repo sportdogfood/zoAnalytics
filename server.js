@@ -53,19 +53,26 @@ async function refreshZohoToken() {
   }
 }
 
-// Helper function to handle Zoho Analytics API requests and token refresh
-async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
+// Middleware to ensure the Zoho access token is refreshed before calling any route
+async function ensureZohoAccessToken(req, res, next) {
   try {
     if (!zohoAccessToken) {
-      // Refresh the token if it's not already available
       console.log('No access token found, attempting to refresh...');
       await refreshZohoToken();
     }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to refresh Zoho access token' });
+  }
+}
 
+// Helper function to handle Zoho Analytics API requests and token refresh
+async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
+  try {
     let options = {
       method: method,
       headers: {
-        'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`, // Check if Zoho-oauthtoken or Bearer is correct
+        'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`,
         'Content-Type': 'application/json'
       }
     };
@@ -113,7 +120,7 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
 }
 
 // Example route to fetch data from a Zoho Analytics report
-app.post('/zoho-analytics/report', async (req, res) => {
+app.post('/zoho-analytics/report', ensureZohoAccessToken, async (req, res) => {
   const workspaceId = req.body.workspaceId; // Get the workspace ID from the request body
   const viewId = req.body.viewId; // Get the view ID from the request body
 
@@ -130,7 +137,7 @@ app.post('/zoho-analytics/report', async (req, res) => {
 });
 
 // Example route to fetch dashboard data from Zoho Analytics
-app.get('/zoho-analytics/dashboard', async (req, res) => {
+app.get('/zoho-analytics/dashboard', ensureZohoAccessToken, async (req, res) => {
   const dashboardId = req.query.dashboardId; // Provide the dashboard ID as a query param
 
   if (!dashboardId) {
