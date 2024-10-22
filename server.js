@@ -56,10 +56,16 @@ async function refreshZohoToken() {
 // Helper function to handle Zoho Analytics API requests and token refresh
 async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
   try {
+    if (!zohoAccessToken) {
+      // Refresh the token if it's not already available
+      console.log('No access token found, attempting to refresh...');
+      await refreshZohoToken();
+    }
+
     let options = {
       method: method,
       headers: {
-        'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`,
+        'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`, // Check if Zoho-oauthtoken or Bearer is correct
         'Content-Type': 'application/json'
       }
     };
@@ -119,7 +125,7 @@ app.post('/zoho-analytics/report', async (req, res) => {
   // Construct the correct API URL
   const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${workspaceId}/views/${viewId}`;
 
-  // Use GET method as Zoho's API may not support POST for this endpoint
+  // Use POST instead of GET if required by the API (Change as per the API requirement)
   await handleZohoApiRequest(apiUrl, res, 'GET');
 });
 
