@@ -1,15 +1,23 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const cors = require('cors');
+const cors = require('cors'); 
 const app = express();
 
 let zohoAccessToken = '';
-let zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN; // Stored in Heroku environment
-let clientId = process.env.ZOHO_CLIENT_ID;
-let clientSecret = process.env.ZOHO_CLIENT_SECRET;
+const zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN; // Stored in Heroku environment
+const clientId = process.env.ZOHO_CLIENT_ID;
+const clientSecret = process.env.ZOHO_CLIENT_SECRET;
 
 // Middleware to enable CORS for all requests
-app.use(cors());
+const corsOptions = {
+    origin: 'https://www.sportdogfood.com',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -132,7 +140,7 @@ app.post('/zoho-analytics/report', ensureZohoAccessToken, async (req, res) => {
   // Construct the correct API URL
   const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${workspaceId}/views/${viewId}`;
 
-  // Use POST instead of GET if required by the API (Change as per the API requirement)
+  // Use GET instead of POST as per the API requirement
   await handleZohoApiRequest(apiUrl, res, 'GET');
 });
 
@@ -152,3 +160,4 @@ app.get('/zoho-analytics/dashboard', ensureZohoAccessToken, async (req, res) => 
 app.listen(process.env.PORT || 3000, () => {
   console.log('Server is running...');
 });
+
