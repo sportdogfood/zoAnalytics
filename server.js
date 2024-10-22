@@ -1,31 +1,56 @@
+// server.js
 const express = require('express');
 const fetch = require('node-fetch');
-const cors = require('cors'); 
+const cors = require('cors');
 const app = express();
 
-let zohoAccessToken = '';
-const zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN; // Stored in Heroku environment
+// Environment Variables
+const zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN;
 const clientId = process.env.ZOHO_CLIENT_ID;
 const clientSecret = process.env.ZOHO_CLIENT_SECRET;
-
-// Middleware to enable CORS for all requests
-const corsOptions = {
-    origin: 'https://www.sportdogfood.com',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // Ensure that environment variables are properly set
 if (!zohoRefreshToken || !clientId || !clientSecret) {
   console.error('Missing one or more required environment variables: ZOHO_REFRESH_TOKEN, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET');
   process.exit(1);
 }
+
+let zohoAccessToken = '';
+
+// CORS Configuration
+const allowedOrigins = ['https://www.sportdogfood.com']; // Add other trusted origins if necessary
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204 // Some legacy browsers choke on 204
+};
+
+// Apply CORS middleware first
+app.use(cors(corsOptions));
+
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions));
+
+// Middleware to parse JSON and URL-encoded data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Logging Middleware (Optional but Recommended)
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin || 'No Origin'}`);
+  next();
+});
 
 // Function to refresh the Zoho access token
 async function refreshZohoToken() {
@@ -77,7 +102,7 @@ async function ensureZohoAccessToken(req, res, next) {
 // Helper function to handle Zoho Analytics API requests and token refresh
 async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
   try {
-    let options = {
+    const options = {
       method: method,
       headers: {
         'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`,
@@ -111,7 +136,7 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
       console.log('Retry response status:', response.status);
     }
 
-    // Log response if it's not successful
+    // If response is still not OK, handle the error
     if (!response.ok) {
       const errorResponse = await response.json();
       console.error(`Zoho API Error: ${response.statusText}`, errorResponse);
@@ -127,10 +152,15 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
   }
 }
 
-// Example route to fetch data from a Zoho Analytics report
+// Routes
+
+/**
+ * @route   POST /zoho-analytics/report
+ * @desc    Fetch data from a Zoho Analytics report
+ * @access  Public (CORS controlled)
+ */
 app.post('/zoho-analytics/report', ensureZohoAccessToken, async (req, res) => {
-  const workspaceId = req.body.workspaceId; // Get the workspace ID from the request body
-  const viewId = req.body.viewId; // Get the view ID from the request body
+  const { workspaceId, viewId } = req.body; // Destructure for clarity
 
   // Validate that both workspaceId and viewId are provided
   if (!workspaceId || !viewId) {
@@ -138,13 +168,17 @@ app.post('/zoho-analytics/report', ensureZohoAccessToken, async (req, res) => {
   }
 
   // Construct the correct API URL
-  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${workspaceId}/views/${viewId}`;
+  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${encodeURIComponent(workspaceId)}/views/${encodeURIComponent(viewId)}`;
 
   // Use GET instead of POST as per the API requirement
   await handleZohoApiRequest(apiUrl, res, 'GET');
 });
 
-// Example route to fetch dashboard data from Zoho Analytics
+/**
+ * @route   GET /zoho-analytics/dashboard
+ * @desc    Fetch dashboard data from Zoho Analytics
+ * @access  Public (CORS controlled)
+ */
 app.get('/zoho-analytics/dashboard', ensureZohoAccessToken, async (req, res) => {
   const dashboardId = req.query.dashboardId; // Provide the dashboard ID as a query param
 
@@ -152,12 +186,20 @@ app.get('/zoho-analytics/dashboard', ensureZohoAccessToken, async (req, res) => 
     return res.status(400).json({ error: 'Missing dashboardId in request.' });
   }
 
-  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/dashboards/${dashboardId}`;
-  await handleZohoApiRequest(apiUrl, res);
+  const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/dashboards/${encodeURIComponent(dashboardId)}`;
+  await handleZohoApiRequest(apiUrl, res, 'GET');
 });
 
-// Server listening
-app.listen(process.env.PORT || 3000, () => {
-  console.log('Server is running...');
+// Additional Routes (if any) can be added here following the same pattern
+
+// Error Handling Middleware (Should be the last middleware)
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Zoho Analytics Server is running on port ${PORT}`);
+});
