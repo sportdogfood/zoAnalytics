@@ -31,8 +31,8 @@ const corsOptions = {
     return callback(null, true);
   },
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'fx-customer'], // Include all necessary headers
+  credentials: true, // Set to true if frontend needs to send cookies or other credentials
   optionsSuccessStatus: 204 // Some legacy browsers choke on 204
 };
 
@@ -46,9 +46,12 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging Middleware (Optional but Recommended)
+// Enhanced Logging Middleware
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin || 'No Origin'}`);
+  console.log(`Incoming Request: ${req.method} ${req.url}`);
+  console.log(`Origin: ${req.headers.origin || 'No Origin'}`);
+  console.log(`Access-Control-Request-Method: ${req.headers['access-control-request-method'] || 'N/A'}`);
+  console.log(`Access-Control-Request-Headers: ${req.headers['access-control-request-headers'] || 'N/A'}`);
   next();
 });
 
