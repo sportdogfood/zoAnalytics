@@ -197,8 +197,18 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
         } catch (e) {
           errorResponse = await response.text();
         }
-        console.error(`Zoho API Error: ${response.statusText}`, errorResponse);
-        return res.status(response.status).json({ error: `Zoho API Error: ${response.statusText}`, details: errorResponse });
+  
+        console.error(`Zoho API Error: ${response.statusText}`, {
+          status: response.status,
+          headers: response.headers.raw(),
+          body: errorResponse
+        });
+        
+        return res.status(response.status).json({
+          error: `Zoho API Error: ${response.statusText}`,
+          status: response.status,
+          response: errorResponse
+        });
       }
   
       const data = await response.json();
@@ -209,6 +219,7 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
       res.status(500).json({ error: 'Error fetching Zoho data' });
     }
   }
+  
   
 // ====================
 // Routes
