@@ -150,65 +150,66 @@ async function ensureZohoAccessToken(req, res, next) {
 // Helper Function to Handle Zoho Analytics API Requests and Token Refresh
 // ====================
 async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
-  try {
-    const methodUpper = method.toUpperCase();
-
-    const options = {
-      method: methodUpper,
-      headers: {
-        'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`,
-        'Content-Type': 'application/json'
+    try {
+      const methodUpper = method.toUpperCase();
+  
+      const options = {
+        method: methodUpper,
+        headers: {
+          'Authorization': `Zoho-oauthtoken ${zohoAccessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' // Added 'Accept' header to specify response format
+        }
+      };
+  
+      // Only include body if method allows it (e.g., POST, PUT, PATCH)
+      if (body && ['POST', 'PUT', 'PATCH'].includes(methodUpper)) {
+        options.body = JSON.stringify(body);
       }
-    };
-
-    // Only include body if method allows it (e.g., POST, PUT, PATCH)
-    if (body && ['POST', 'PUT', 'PATCH'].includes(methodUpper)) {
-      options.body = JSON.stringify(body);
-    }
-
-    console.log(`Sending Zoho API request to URL: ${apiUrl}`);
-    console.log('Request options:', options);
-
-    let response = await fetch(apiUrl, options);
-
-    // Log response status
-    console.log('Initial response status:', response.status);
-
-    // If the token is expired (401), refresh it and retry the request
-    if (response.status === 401) {
-      console.log('Access token expired, refreshing...');
-      await refreshZohoToken();
-
-      // Retry the Zoho API request with the new token
-      options.headers.Authorization = `Zoho-oauthtoken ${zohoAccessToken}`;
-      console.log('Retrying Zoho API request with refreshed token...');
-      response = await fetch(apiUrl, options);
-
-      // Log response status after retrying
-      console.log('Retry response status:', response.status);
-    }
-
-    // If response is still not OK, handle the error
-    if (!response.ok) {
-      let errorResponse;
-      try {
-        errorResponse = await response.json();
-      } catch (e) {
-        errorResponse = await response.text();
+  
+      console.log(`Sending Zoho API request to URL: ${apiUrl}`);
+      console.log('Request options:', options);
+  
+      let response = await fetch(apiUrl, options);
+  
+      // Log response status
+      console.log('Initial response status:', response.status);
+  
+      // If the token is expired (401), refresh it and retry the request
+      if (response.status === 401) {
+        console.log('Access token expired, refreshing...');
+        await refreshZohoToken();
+  
+        // Retry the Zoho API request with the new token
+        options.headers.Authorization = `Zoho-oauthtoken ${zohoAccessToken}`;
+        console.log('Retrying Zoho API request with refreshed token...');
+        response = await fetch(apiUrl, options);
+  
+        // Log response status after retrying
+        console.log('Retry response status:', response.status);
       }
-      console.error(`Zoho API Error: ${response.statusText}`, errorResponse);
-      return res.status(response.status).json({ error: `Zoho API Error: ${response.statusText}` });
+  
+      // If response is still not OK, handle the error
+      if (!response.ok) {
+        let errorResponse;
+        try {
+          errorResponse = await response.json();
+        } catch (e) {
+          errorResponse = await response.text();
+        }
+        console.error(`Zoho API Error: ${response.statusText}`, errorResponse);
+        return res.status(response.status).json({ error: `Zoho API Error: ${response.statusText}`, details: errorResponse });
+      }
+  
+      const data = await response.json();
+      console.log('Zoho API request successful, response data:', data);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching Zoho data:", error);
+      res.status(500).json({ error: 'Error fetching Zoho data' });
     }
-
-    const data = await response.json();
-    console.log('Zoho API request successful, response data:', data);
-    res.json(data);
-  } catch (error) {
-    console.error("Error fetching Zoho data:", error);
-    res.status(500).json({ error: 'Error fetching Zoho data' });
   }
-}
-
+  
 // ====================
 // Routes
 // ====================
