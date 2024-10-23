@@ -12,6 +12,11 @@ require('dotenv').config(); // For local development
 const app = express();
 
 // ====================
+// Set Trust Proxy for Heroku
+// ====================
+app.set('trust proxy', 1);
+
+// ====================
 // Environment Variables
 // ====================
 const zohoRefreshToken = process.env.ZOHO_REFRESH_TOKEN;
