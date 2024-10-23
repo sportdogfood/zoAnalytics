@@ -58,9 +58,7 @@ app.use(morgan('combined'));
 
 // Apply CORS middleware first
 app.use(cors(corsOptions));
-
-// Handle preflight requests for all routes
-app.options('*', cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight requests
 
 // Middleware to parse JSON and URL-encoded data
 app.use(express.json());
@@ -70,8 +68,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   console.log(`Incoming Request: ${req.method} ${req.url}`);
   console.log(`Origin: ${req.headers.origin || 'No Origin'}`);
-  console.log(`Access-Control-Request-Method: ${req.headers['access-control-request-method'] || 'N/A'}`);
-  console.log(`Access-Control-Request-Headers: ${req.headers['access-control-request-headers'] || 'N/A'}`);
   next();
 });
 
@@ -163,7 +159,7 @@ async function handleZohoApiRequest(apiUrl, res, method = 'GET', body = null) {
     if (!response.ok) {
       const errorResponse = await response.json();
       console.error(`Zoho API Error: ${response.statusText}`, errorResponse);
-      throw new Error(`Zoho API Error: ${response.statusText}`);
+      return res.status(response.status).json({ error: `Zoho API Error: ${response.statusText}` });
     }
 
     const data = await response.json();
@@ -193,7 +189,6 @@ app.post('/zoho-analytics/report', ensureZohoAccessToken, async (req, res) => {
   // Construct the correct API URL
   const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${encodeURIComponent(workspaceId)}/views/${encodeURIComponent(viewId)}`;
 
-  // Use GET instead of POST as per the API requirement
   await handleZohoApiRequest(apiUrl, res, 'GET');
 });
 
@@ -213,9 +208,7 @@ app.get('/zoho-analytics/dashboard', ensureZohoAccessToken, async (req, res) => 
   await handleZohoApiRequest(apiUrl, res, 'GET');
 });
 
-// Additional Routes (if any) can be added here following the same pattern
-
-// Error Handling Middleware (Should be the last middleware)
+// Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
