@@ -2640,5 +2640,71 @@ class BulkAPI
 
 }
 
+class AnalyticsClient {
+    constructor(clientId, clientSecret, refreshToken) {
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.refreshToken = refreshToken;
+        this.accessToken = null;
+    }
+
+    async refreshAccessToken() {
+        try {
+            const refreshUrl = 'https://accounts.zoho.com/oauth/v2/token';
+            const response = await fetch(refreshUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    grant_type: 'refresh_token',
+                    refresh_token: this.refreshToken,
+                    client_id: this.clientId,
+                    client_secret: this.clientSecret
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to refresh token: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            if (data.access_token) {
+                this.accessToken = data.access_token;
+                console.log('Access Token Refreshed:', this.accessToken);
+            } else {
+                throw new Error('Failed to retrieve access token');
+            }
+        } catch (error) {
+            console.error('Error refreshing access token:', error);
+        }
+    }
+
+    async getReport(workspaceId, viewId) {
+        if (!this.accessToken) {
+            await this.refreshAccessToken();
+        }
+
+        try {
+            const apiUrl = `https://analyticsapi.zoho.com/restapi/v2/workspaces/${encodeURIComponent(workspaceId)}/views/${encodeURIComponent(viewId)}`;
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Zoho-oauthtoken ${this.accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Error fetching report: ${response.statusText}, ${JSON.stringify(errorData)}`);
+            }
+
+            const data = await response.json();
+            console.log('Report Data:', data);
+            return data;
+        } catch (error) {
+            console.error('Error fetching report:', error);
+        }
+    }
+}
 
 module.exports = AnalyticsClient;
